@@ -1,32 +1,32 @@
-import React, { useState } from 'react';
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import React, { useState, useEffect } from 'react';
+import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth } from './firebase.js';
+import Swal from 'sweetalert2';
+import { FaGoogle } from "react-icons/fa";
 
-import { auth } from "./firebase.js";
 
 function App() {
   const [taskText, setTaskText] = useState('');
   const [tasks, setTasks] = useState([]);
   const [editIndex, setEditIndex] = useState(-1);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [user, setUser] = useState(null); // Track the user's authentication status
   const googleProvider = new GoogleAuthProvider();
+  const authInstance = getAuth();
+  const isAuthenticated = !!user; // Check if the user is authenticated
+ 
 
 
   const saveTask = () => {
+    if (!isAuthenticated) {
+      signIn();
+      return;
+    }
+
     if (taskText.trim() !== '') {
       setTasks([...tasks, { text: taskText.trim(), completed: false }]);
       setTaskText('');
     }
-  };
-
-  const toggleCompletion = (index) => {
-    const updatedTasks = tasks.map((task, i) =>
-      i === index ? { ...task, completed: !task.completed } : task
-    );
-    setTasks(updatedTasks);
   };
 
   const removeTask = (index) => {
@@ -54,39 +54,42 @@ function App() {
     setFilterStatus(status);
   };
 
-  let filteredTasks = tasks;
-  if (filterStatus === 'completed') {
-    filteredTasks = tasks.filter((task) => task.completed);
-  } else if (filterStatus === 'pending') {
-    filteredTasks = tasks.filter((task) => !task.completed);
-  }
-  const [User,setUser] =useState();
 
-  const signIn = ()=>{
+  const filteredTasks = tasks.filter((task) => {
+    if (filterStatus === 'completed') {
+      return task.completed;
+    } else if (filterStatus === 'pending') {
+      return !task.completed;
+    }
+    return true;
+  });
+
+  const toggleCompletion = (index) => {
+    const updatedTasks = tasks.map((task, i) =>
+      i === index ? { ...task, completed: !task.completed } : task
+    );
+    setTasks(updatedTasks);
+  };
+  
+  const signIn = () => {
     signInWithPopup(auth, googleProvider)
-    .then(async (result) => {
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential.accessToken;
-      const user = result.user;
-    setUser(user.providerData[0]);
-  
-  })
-    .catch((error) => {
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      const email = error.customData.email;
-      const credential = GoogleAuthProvider.credentialFromError(error);
-    });
-  
-  }
+      .then(async (result) => {
+        setUser(result.user);
+        Swal.fire ("Login Completed","","success")
+      })
+      .catch((error) => {
+        // Handle login error
+      });
+  };
+
   return (
-    <div className="container mx-auto max-w-md p-4 bg-white rounded-lg shadow-lg">
-      <h1 className="text-2xl font-bold text-center mb-4">Task Manager</h1>
-      <button onClick={signIn}>
-          Sign in 
-        </button>
-        
-      <div className="flex items-center mb-4">
+    <div className='bg-slate-500 h-[100vh] pt-10'>
+      {isAuthenticated ? (
+        <div className="container mx-auto max-w-md p-4 bg-gray-800 rounded-lg text-white">
+          <div className='flex justify-center mb-4'> {/* Centering the heading */}
+          <h1 className="text-2xl font-bold">Task Manager</h1>
+        </div>
+ <div className="flex items-center mb-4">
         
         <label htmlFor="task" className="mr-2 font-semibold">Enter Task</label>
         <div className="flex">
@@ -99,7 +102,7 @@ function App() {
             onChange={(event) => {
               setTaskText(event.target.value);
             }}
-            className="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300 ease-in-out"
+            className="border text-black border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300 ease-in-out"
           />
           <button onClick={saveTask} className="ml-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded-md transition duration-300 ease-in-out hover:bg-blue-700">
             Submit
@@ -128,7 +131,8 @@ function App() {
         ) : (
           <ul>
             {filteredTasks.map((task, index) => (
-              <li key={index} className={`flex items-center justify-between py-2 border-b border-gray-300 ${task.completed ? 'bg-gray-100' : ''}`}>
+              <li key={index} className={`flex items-center justify-between py-2 border-b border-gray-300 ${task.completed ? '' : ''} ${!task.completed ? '' : 'bg-green-700'}`}
+              >
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -165,7 +169,25 @@ function App() {
           </ul>
         )}
       </div>
+        </div>
+      ) : (
+        <div className="container mx-auto max-w-md p-4 bg-gray-800 rounded-lg text-white ">
+          <h1 className="text-2xl font-bold text-center mb-4 ">Task Manager</h1>
+          <div className='flex justify-center'>
+          <button
+            onClick={signIn}
+            className="flex justify-center items-center gap-2 bg-white text-gray-900 border border-gray-900 px-4 py-2 rounded-md mb-4 transition duration-300 ease-in-out hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <FaGoogle />
+
+            Sign in with Google
+          </button>
+          
+            </div>
+        </div>
+      )}
     </div>
   );
 }
-export default App
+
+export default App;
